@@ -1,0 +1,42 @@
+# Job Analysis Project Outline
+
+## 1. Introduction
+- **Objective:** To collect, preprocess, and analyze job postings data to gain insights into job market trends, skills demand, and other relevant metrics.
+- **Project Status:** This project is still in progress.
+
+## 2. Project Structure
+
+### Scripts
+- **Data Collection:** Collect job postings data from various sources and save them in a structured format for further processing.
+- **Data Preprocessing:** Clean and preprocess the collected data, normalize text, and extract relevant features such as skills from job descriptions.
+- **Data Analysis:** Analyze and visualize the job postings data to uncover trends, demands, and relationships. This includes:
+  - Analyzing daily job postings trends
+  - Distribution of job postings by location
+  - Most demanded skills
+  - Association analysis to find frequent itemsets and rules among skills
+  - Proportion of remote vs. on-site job postings
+  - Top companies posting jobs and the skills they demand
+  - Creating word clouds for job descriptions and highlights
+  - Performing correlation analysis between different features
+
+## 3. Advanced Features
+- **Machine Learning Models:** Implement and document machine learning models to predict job market trends or classify job postings based on skills.
+- **Natural Language Processing (NLP):** Use NLP techniques to analyze job descriptions for more nuanced insights.
+- **Interactive Visualizations:** 
+  - Create an interactive dashboard using tools like Dash, Plotly, or Tableau to visualize key findings in an interactive and user-friendly manner.
+  - Develop a simple web application to allow users to interact with the data and visualizations.
+- **Data Pipeline:** Automate the data collection, preprocessing, and analysis steps using tools like Apache Airflow or Prefect.
+- **Deployment:** Deploy the web application and dashboard to a platform like streamlit and include the deployment details in the documentation.
+
+## 4. Testing and CI/CD
+- **Unit Tests:** Add comprehensive unit tests for each function and script to ensure robustness.
+
+## 5. Future Work
+- **Expand Data Sources:** Incorporate additional data sources to enrich the analysis. Include industry and salary
+- **Enhance Machine Learning Models:** Explore advanced machine learning models and techniques for to predict salary given a description and create a recommendation system.
+
+## 6. Additional Notes
+- **Environment Variables:** Ensure to set the necessary environment variables in the `.env` file.
+- **Data Storage:** Collected and processed data is stored in specified CSV files.
+- **Visualization Outputs:** Generated visualizations are saved as image files in the specified directory.
+
