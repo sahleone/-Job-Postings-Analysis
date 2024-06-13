@@ -128,6 +128,51 @@ def analyze_cooccurring_skills(data):
 
     logging.info("Apriori analysis completed. Results saved to frequent_itemsets.csv and association_rules.csv.")
 
+    # Visualize the top 10 frequent itemsets
+    top_itemsets = frequent_itemsets.nlargest(20, 'support')
+    plt.figure(figsize=(12, 8))
+    sns.barplot(x='support', y=top_itemsets['itemsets'].astype(str), data=top_itemsets)
+    plt.title('Top 20 Frequent Itemsets')
+    plt.xlabel('Support')
+    plt.ylabel('Itemsets')
+    plt.savefig(os.path.join(fig_save_path, 'top_frequent_itemsets.png'))
+    plt.close()
+    logging.info("Saved as top_frequent_itemsets.png")
+
+    # Visualize the association rules using a network graph
+    G = nx.DiGraph()
+
+    # Add nodes and edges to the graph
+    for _, rule in tqdm(rules.iterrows()):
+        for antecedent in rule['antecedents']:
+            for consequent in rule['consequents']:
+                G.add_node(antecedent, label=antecedent)
+                G.add_node(consequent, label=consequent)
+                G.add_edge(antecedent, consequent, weight=rule['lift'], label=f"conf: {rule['confidence']:.2f}, lift: {rule['lift']:.2f}")
+
+    # Define position for each node
+    pos = nx.spring_layout(G)
+
+    # Draw nodes
+    nx.draw_networkx_nodes(G, pos, node_size=3000, node_color='lightblue')
+
+    # Draw edges
+    edges = G.edges(data=True)
+    nx.draw_networkx_edges(G, pos, edgelist=edges, arrowstyle='-|>', arrowsize=20, edge_color='grey')
+
+    # Draw labels
+    nx.draw_networkx_labels(G, pos, font_size=12, font_color='black')
+
+    # Draw edge labels
+    edge_labels = {(u, v): d['label'] for u, v, d in edges}
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8)
+
+    plt.savefig(os.path.join(fig_save_path, 'Network Graph of Association Rules.png'))
+    plt.close()
+
+    logging.info("Visualization of Apriori analysis completed. Saved as top_frequent_itemsets.png and association_rules_graph.png.")
+
+
 def analyze_remote_work(data):
     """
     Analyze the proportion of remote vs. on-site job postings.
