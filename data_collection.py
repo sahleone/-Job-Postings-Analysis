@@ -23,9 +23,10 @@ params = {
     'engine': 'google_jobs',
     'q': 'Data Scientist',
     'api_key': API_KEY,
-    'location': 'United States',
+    'location': 'New York',
     'hl': 'en',  # Set language to English
-    'start': 0   # Pagination start parameter
+    'start': 0,   # Pagination start parameter
+    'chips':'date_posted:month'
 }
 
 # Ensure the folder exists
@@ -62,7 +63,7 @@ def save_response_as_json(response, start):
         response (dict): The full response data from the API.
         start (int): The start parameter used for the API request.
     """
-    filename = os.path.join(output_folder, f'job_postings_{start}.json')
+    filename = os.path.join(output_folder,params['location'], f'job_postings_{start}.json')
     try:
         logging.info(f"Saving response to {filename}...")
         with open(filename, 'w') as file:
@@ -97,7 +98,7 @@ def save_to_csv(job_listings, filename='data_scientist_jobs.csv'):
     """
     filename='data_scientist_jobs.csv'
 
-    file_path = os.path.join(output_folder,filename)
+    file_path = os.path.join(output_folder,params['location'],filename)
 
     file_exists = os.path.isfile(file_path)
 
@@ -122,7 +123,10 @@ def main():
     """
     all_job_listings = []
 
-    for start in range(0, 30, 10):  # Adjust range as needed to fetch more pages
+    if not os.path.exists(os.path.join(output_folder,params['location'])):
+        os.makedirs(os.path.join(output_folder,params['location']))
+
+    for start in range(0, 300, 10):  # Adjust range as needed to fetch more pages
         params['start'] = start
         job_listings, response = fetch_job_listings(params)
         if job_listings:

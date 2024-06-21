@@ -12,8 +12,8 @@ from datetime import datetime, timedelta
 logging.basicConfig(filename = 'data_preprocessing.log',level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load job postings from CSV
-input_filename = 'job_postings\data_scientist_jobs.csv'
-output_filename = 'job_postings\preprocessed_data_scientist_jobs.csv'
+input_filename = 'job_postings\\New York\data_scientist_jobs.csv'
+output_filename = 'job_postings\\New York\preprocessed_data_scientist_jobs.csv'
 
 def is_english(text):
     """
@@ -42,11 +42,11 @@ def normalize_job_title(title):
     """
     title = title.lower()
     
-    if any(term in title for term in ['junior', 'jr', 'intern']):
+    if any(term in title for term in ['junior', 'jr', 'intern', 'entry']):
         seniority = 'junior'
-    elif any(term in title for term in ['senior', 'sr', 'manager', 'lead', 'principal', 'director', 'head']):
+    elif any(term in title for term in ['senior', 'sr', 'manager', 'lead', 'principal', 'director', 'staff','head']):
         seniority = 'senior'
-    elif any(term in title for term in ['staff', 'mid', 'middle']):
+    elif any(term in title for term in [ 'mid', 'middle']):
         seniority = 'mid'
     else:
         seniority = 'unknown'
@@ -63,6 +63,7 @@ def group_locations(location):
     Returns:
         str: Broader location category.
     """
+    
     location = location.lower().strip()
     patterns = {
         'New York Metro': r'new york|nyc|manhattan|brooklyn|queens|bronx',
@@ -198,6 +199,9 @@ def preprocess_data(input_file, output_file):
     logging.info("Starting data preprocessing...")
     data = pd.read_csv(input_file)
 
+    # Drop duplicates
+    data = data.drop_duplicates()
+
     # Filter out non-English descriptions
     data = data[data['Description'].apply(is_english)]
 
@@ -205,6 +209,7 @@ def preprocess_data(input_file, output_file):
     data['JobTitle'], data['SeniorityLevel'] = zip(*data['Title'].apply(normalize_job_title))
 
     # Convert relevant columns to lowercase
+    data['Location'] = data['Location'].fillna("Unknown")
     data['Location'] = data['Location'].str.lower()
     data['Description'] = data['Description'].str.lower()
     data['Highlights'] = data['Highlights'].str.lower()

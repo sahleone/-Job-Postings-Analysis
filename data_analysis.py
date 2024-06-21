@@ -1,5 +1,3 @@
-# File: data_analysis.py
-# File: data_analysis.py
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -10,10 +8,13 @@ from mlxtend.frequent_patterns import apriori, association_rules
 from mlxtend.frequent_patterns import fpgrowth
 import numpy as np
 import os
-
+import networkx as nx
+from tqdm import tqdm
+import warnings
 
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 # Download NLTK stopwords if not already downloaded
 import nltk
@@ -23,6 +24,8 @@ nltk.download('punkt')
 # Set up logging
 logging.basicConfig(filename = 'data_analysis.log ',level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Filter out specific warnings if needed
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 def load_data(input_file):
@@ -59,6 +62,7 @@ def analyze_daily_postings(data):
     plt.ylabel('Number of Postings')
     plt.grid(True)
     plt.savefig(os.path.join(fig_save_path ,'daily_postings.png'))
+    plt.tight_layout()
     plt.close()
     logging.info("Daily number of job postings analysis completed. Saved as daily_postings.png.")
 
@@ -80,6 +84,7 @@ def analyze_postings_by_location(data):
     plt.xticks(rotation=90)
     plt.grid(True)
     plt.savefig(os.path.join(fig_save_path ,'postings_by_location.png'))
+    plt.tight_layout()
     plt.close()
     logging.info("Job postings by location analysis completed. Saved as postings_by_location.png.")
 
@@ -101,6 +106,7 @@ def analyze_skills(data):
     plt.ylabel('Frequency')
     plt.xticks(rotation=90)
     plt.grid(True)
+    plt.tight_layout()
     plt.savefig(os.path.join(fig_save_path ,'top_skills.png'))
     plt.close()
 
@@ -191,6 +197,7 @@ def analyze_remote_work(data):
         plt.title('Remote vs. On-site Job Postings')
         plt.ylabel('')
         plt.savefig(os.path.join(fig_save_path ,'remote_vs_onsite.png'))
+        plt.tight_layout()
         plt.close()
         logging.info("Remote work analysis completed. Saved as remote_vs_onsite.png.")
     else:
@@ -215,6 +222,7 @@ def analyze_company_postings(data):
     plt.ylabel('Number of Postings')
     plt.xticks(rotation=90)
     plt.grid(True)
+    plt.tight_layout()
     plt.savefig(os.path.join(fig_save_path ,'top_companies.png'))
     logging.info("Top companies by job postings analysis completed. Saved as top_companies.png.")
 
@@ -246,7 +254,7 @@ def clean_text(text):
         str: The cleaned text.
     """
     # Define stopwords
-    stop_words = set(stopwords.words('english'))
+    stop_words = set(stopwords.words('english')).union(["job", "experience", "work", "skills","data","science"])
 
     # Tokenize the text
     words = word_tokenize(text)
@@ -256,21 +264,20 @@ def clean_text(text):
 
     return ' '.join(cleaned_words)
 
-def create_word_cloud(text, title, output_file):
-    """
-    Create and save a word cloud from the given text.
 
-    Args:
-        text (str): The text to create the word cloud from.
-        title (str): The title of the word cloud plot.
-        output_file (str): The file to save the word cloud image to.
-    """
-    # Clean the text
-    cleaned_text = clean_text(text)
-    
-    # Generate the word cloud
-    wordcloud = WordCloud(width=800, height=400, background_color='white').generate(cleaned_text)
-
+def create_word_cloud(text, title, output_file, weights=None, stopwords = None):  # Added weights argument
+    # Customized WordCloud 
+    wordcloud = WordCloud(
+        width=800, height=400,
+        background_color='white', 
+        stopwords = stopwords,
+        min_font_size=10,  # Adjust minimum font size for readability
+        max_words=150  # Limit the number of words displayed
+    )
+    if weights:
+        wordcloud.generate_from_frequencies(weights)
+    else:
+        wordcloud.generate(text)
     # Plot the word cloud
     plt.figure(figsize=(10, 6))
     plt.imshow(wordcloud, interpolation='bilinear')
@@ -281,57 +288,120 @@ def create_word_cloud(text, title, output_file):
     logging.info(f"{title} word cloud saved as {output_file}")
 
 def analyze_word_clouds(data):
-    """
-    Create word clouds for job descriptions and highlights to visualize the most common words and phrases.
-
-    Args:
-        data (DataFrame): Job postings data.
-    """
     logging.info("Creating word clouds for job descriptions and highlights...")
+    
 
-    descriptions_text = ' '.join(data['Description'].dropna())
-    highlights_text = ' '.join(data['Highlights'].dropna())
+    for column in ['Description', 'Highlights']:
+        text = ' '.join(data[column].dropna())
 
-    create_word_cloud(descriptions_text, 'Job Descriptions Word Cloud', 'descriptions_word_cloud.png')
-    create_word_cloud(highlights_text, 'Job Highlights Word Cloud', 'highlights_word_cloud.png')
+        # Enhanced Cleaning (Lowercase, remove numbers, special characters)
+        cleaned_text = clean_text(text)
+        custom_stopwords = set(stopwords.words('english')).union(["job", "experience", "work", "skills", "company", "benefits", "business","position","data","science"])
+        custom_stopwords = list(custom_stopwords.union(data["Company"]))
+
+        # TF-IDF Calculation
+        vectorizer = TfidfVectorizer(stop_words=custom_stopwords, ngram_range=(1, 3))
+        tfidf_matrix = vectorizer.fit_transform(data[column].dropna())
+        feature_names = vectorizer.get_feature_names_out()  # Get feature names
+        tfidf_scores = tfidf_matrix.sum(axis=0).A1  # Sum TF-IDF scores across documents
+
+        # Create dictionary of words and their TF-IDF scores
+        tfidf_dict = dict(zip(feature_names, tfidf_scores))
+        
+        # Plot and Save with TF-IDF
+        title = f"{column} Word Cloud (TF-IDF)"  # More dynamic title
+        output_file = f"{column.lower()}_tfidf_word_cloud.png"
+        create_word_cloud(cleaned_text, title, output_file, weights=tfidf_dict, stopwords = custom_stopwords) 
 
 
-def analyze_correlations(data):
-    """
-    Perform correlation analysis to see if there are any interesting relationships between different features.
-
-    Args:
-        data (DataFrame): Job postings data.
-    """
+def analyze_correlations(data, top_n_skills=15):
     logging.info("Performing correlation analysis...")
 
-    # Handle missing data by filling or dropping
-    data_filled = data.copy().fillna({'SeniorityLevel': 'Unknown', 'GeneralLocation': 'Unknown', 'Company': 'Unknown', 'Remote': 'Unknown'})
+    # Handle missing data for relevant columns
+    data_filled = data.copy().fillna({'SeniorityLevel': 'Unknown', 'Remote': 'Unknown'})
 
     # One-hot encode categorical features
-    categorical_features = ['SeniorityLevel', 'GeneralLocation', 'Company', 'Remote']
+    categorical_features = ['SeniorityLevel', 'Remote']
     data_encoded = pd.get_dummies(data_filled, columns=categorical_features)
 
-    # Calculate correlation matrix
-    correlation_matrix = data_encoded.drop(['JobID', 'JobTitle','Skills', 'Date','Description', 'Highlights'], axis = 1).corr()
+    # Expand skills and one-hot encode them
+    all_skills = set(skill for sublist in data['Skills'] for skill in sublist)
+    skill_dummies = data['Skills'].apply(lambda x: pd.Series({skill: 1 if skill in x else 0 for skill in all_skills}))
+    data_encoded = pd.concat([data_encoded, skill_dummies], axis=1).fillna(0)
 
-    # Plot the correlation matrix
+    # Filter out non-numeric columns
+    numeric_data = data_encoded.select_dtypes(include=[np.number])
+
+    # Calculate correlation matrix for all data
+    correlation_matrix = numeric_data.corr()
+
+    # Plot correlation matrix for all data (using all skills)
+    _plot_correlation_matrix(correlation_matrix, skill_dummies.columns, "All Seniority Levels")
+
+    # Plot for each seniority level
+    for seniority in ['junior','senior','mid']:
+        seniority_mask = data_filled['SeniorityLevel'] == seniority
+        seniority_data = numeric_data.loc[seniority_mask]
+        
+        # Calculate correlation matrix for this seniority level
+        corr_matrix_seniority = seniority_data.corr()
+
+        # Select top skills for this seniority level
+        avg_abs_corr = corr_matrix_seniority[skill_dummies.columns].abs().mean()
+        top_skills_seniority = avg_abs_corr.sort_values(ascending=False)[:top_n_skills]  
+        
+        # Save top skills for this seniority to CSV
+        top_skills_seniority.to_csv(os.path.join(data_save_path, f'top_skills_{seniority}.csv'))
+        
+        # Plot correlation matrix for this seniority level (using top skills for this seniority)
+        _plot_correlation_matrix(corr_matrix_seniority, top_skills_seniority.index, seniority)
+
+
+
+def _plot_correlation_matrix(correlation_matrix, top_skills, title):
+    skill_mask = correlation_matrix.columns.isin(top_skills)
     plt.figure(figsize=(20, 16))
-    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt='.2f', vmin=-1, vmax=1, center=0)
-    plt.title('Correlation Matrix')
-    plt.savefig(os.path.join(fig_save_path, 'correlation_matrix.png'))
+    sns.heatmap(
+        correlation_matrix.loc[skill_mask, skill_mask], 
+        annot=True, 
+        cmap="coolwarm",
+        fmt=".2f",
+        vmin=-1,
+        vmax=1,
+        center=0,
+    )
+    plt.title(f"Correlation Matrix (Top {len(top_skills)} Skills) - {title}")
+    plt.savefig(os.path.join(fig_save_path, f"correlation_matrix_{title.replace(' ', '_')}.png"))
+    plt.tight_layout()
     plt.close()
-    logging.info("Correlation analysis completed. Saved as correlation_matrix.png.")
 
+def analyze_role_SeniorityLevel(data):
+    """
+    Analyze the SeniorityLevel of roles
 
+    Args:
+        data (DataFrame): Job postings data.
+    """
+    logging.info("Analyzing the SeniorityLevel of roles...")
+    if 'Highlights' in data.columns:
+        counts = data['SeniorityLevel'].value_counts()
 
-
+        plt.figure(figsize=(10, 6))
+        counts.plot(kind='bar')
+        plt.title('SeniorityLevel count')
+        plt.ylabel('')
+        plt.savefig(os.path.join(fig_save_path ,'SeniorityLevel count.png'))
+        plt.tight_layout()
+        plt.close()
+        logging.info("SeniorityLevel of roles analysis completed. Saved as SeniorityLevel count.png.")
+    else:
+        logging.warning("Highlights column not found in the data.")
 
 def main():
     """
     Main function to perform data analysis on job postings.
     """
-    path = 'chart'
+    path = 'charts'
     if not os.path.exists(path):
         os.makedirs(path)
        
@@ -339,9 +409,10 @@ def main():
     analyze_daily_postings(data)
     analyze_postings_by_location(data)
     analyze_skills(data)
-    analyze_cooccurring_skills(data)
+    # analyze_cooccurring_skills(data)
     analyze_remote_work(data)
-    analyze_company_postings(data)
+    analyze_role_SeniorityLevel(data)
+    # analyze_company_postings(data)
     analyze_word_clouds(data)
 
     # split by company / location/ industry ?
@@ -350,10 +421,10 @@ def main():
 if __name__ == '__main__':
 
     # Load preprocessed job postings data
-    input_filename = 'job_postings/preprocessed_data_scientist_jobs.csv'
+    input_filename = 'job_postings\\New York\preprocessed_data_scientist_jobs.csv'
 
     # Ensure the 'chart' directory exists
-    fig_save_path = 'job analysis/charts'
+    fig_save_path = 'charts'
     if not os.path.exists(fig_save_path ):
         os.makedirs(fig_save_path )
 
